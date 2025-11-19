@@ -18,11 +18,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true  // 启用代码混淆和优化
+            isShrinkResources = true  // 启用资源压缩
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            // Debug版本保持原样，方便调试
+            isMinifyEnabled = false
         }
     }
 

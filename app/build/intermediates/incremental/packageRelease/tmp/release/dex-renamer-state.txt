@@ -1,0 +1,4 @@
+#Wed Nov 19 10:56:50 CST 2025
+base.0=D\:\\zzrzbb\\shift_calculator_android\\app\\build\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
+path.0=classes.dex
+renamed.0=classes.dex
