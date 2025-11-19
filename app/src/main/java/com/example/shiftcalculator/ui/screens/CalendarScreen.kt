@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import android.app.DatePickerDialog
 import com.example.shiftcalculator.model.ShiftType
 import com.example.shiftcalculator.service.ShiftCalculator
 import com.example.shiftcalculator.utils.Storage
@@ -414,7 +415,8 @@ fun SettingsDialog(
                             onSave = {
                                 onShiftsUpdate(editingShifts)
                                 onDismiss()
-                            }
+                            },
+                            onCancel = onDismiss
                         )
                     }
                 }
@@ -429,7 +431,37 @@ fun DateSettingsContent(
     onClearDate: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
+    
+    // 格式化日期显示
+    val dateText = remember(selectedDate) {
+        "${selectedDate.get(Calendar.YEAR)}年${selectedDate.get(Calendar.MONTH) + 1}月${selectedDate.get(Calendar.DAY_OF_MONTH)}日"
+    }
+    
+    // 显示日期选择对话框的函数
+    val showDatePicker = {
+        val year = selectedDate.get(Calendar.YEAR)
+        val month = selectedDate.get(Calendar.MONTH)
+        val day = selectedDate.get(Calendar.DAY_OF_MONTH)
+        
+        val datePickerDialog = DatePickerDialog(
+            context,
+            { _, y, m, d ->
+                selectedDate = Calendar.getInstance().apply {
+                    set(y, m, d)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+            },
+            year,
+            month,
+            day
+        )
+        datePickerDialog.show()
+    }
     
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -437,12 +469,24 @@ fun DateSettingsContent(
     ) {
         Text("请选择排班起始日期：")
         
-        DatePicker(
-            selectedDate = selectedDate,
-            onDateChange = { newDate ->
-                selectedDate = newDate
-            }
-        )
+        // 日期显示和选择按钮
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDatePicker() }
+        ) {
+            OutlinedTextField(
+                value = dateText,
+                onValueChange = {},
+                readOnly = true,
+                enabled = false,
+                label = { Text("起始日期") },
+                modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = "选择日期")
+                }
+            )
+        }
         
         Spacer(modifier = Modifier.height(8.dp))
         
@@ -452,10 +496,6 @@ fun DateSettingsContent(
         ) {
             Button(
                 onClick = {
-                    selectedDate.set(Calendar.HOUR_OF_DAY, 0)
-                    selectedDate.set(Calendar.MINUTE, 0)
-                    selectedDate.set(Calendar.SECOND, 0)
-                    selectedDate.set(Calendar.MILLISECOND, 0)
                     onConfirm(selectedDate.timeInMillis)
                 },
                 modifier = Modifier.weight(1f)
@@ -484,23 +524,15 @@ fun DateSettingsContent(
 fun ShiftSettingsContent(
     shifts: List<ShiftType>,
     onShiftsChange: (List<ShiftType>) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onCancel: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "班次配置",
-            style = MaterialTheme.typography.titleMedium
-        )
-        
-        Text(
-            text = "可以添加、编辑或删除班次。每个班次可以自定义名称和颜色。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
-        
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -522,47 +554,55 @@ fun ShiftSettingsContent(
                     }
                 )
             }
-            
-            item {
-                Button(
-                    onClick = {
-                        val newShift = ShiftType(
-                            id = UUID.randomUUID().toString(),
-                            label = "新班次",
-                            color = 0xFF757575
-                        )
-                        onShiftsChange(shifts + newShift)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("添加班次")
-                }
-            }
         }
         
+        // 底部固定按钮栏：根据是否有班次显示不同的按钮组合
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // 添加按钮（始终显示）
+            Button(
+                onClick = {
+                    val newShift = ShiftType(
+                        id = UUID.randomUUID().toString(),
+                        label = "新班次",
+                        color = 0xFF757575
+                    )
+                    onShiftsChange(shifts + newShift)
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("添加")
+            }
+            
+            // 根据是否有班次显示"保存"或"默认"按钮
             if (shifts.isEmpty()) {
+                // 无班次时显示"默认"按钮
                 Button(
                     onClick = {
                         onShiftsChange(ShiftType.getDefaultShifts())
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("恢复默认")
+                    Text("默认")
+                }
+            } else {
+                // 有班次时显示"保存"按钮
+                Button(
+                    onClick = onSave,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("保存")
                 }
             }
             
-            Button(
-                onClick = onSave,
-                modifier = Modifier.weight(1f),
-                enabled = shifts.isNotEmpty()
+            // 取消按钮（始终显示）
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier.weight(1f)
             ) {
-                Text("保存")
+                Text("取消")
             }
         }
     }
@@ -690,76 +730,6 @@ fun ColorPickerDialog(
             }
         }
     )
-}
-
-@Composable
-fun DatePicker(
-    selectedDate: Calendar,
-    onDateChange: (Calendar) -> Unit
-) {
-    var year by remember(selectedDate) { mutableStateOf(selectedDate.get(Calendar.YEAR)) }
-    var month by remember(selectedDate) { mutableStateOf(selectedDate.get(Calendar.MONTH)) }
-    var day by remember(selectedDate) { mutableStateOf(selectedDate.get(Calendar.DAY_OF_MONTH)) }
-    
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Column {
-                Text("年", fontSize = 12.sp)
-                OutlinedTextField(
-                    value = year.toString(),
-                    onValueChange = { 
-                        it.toIntOrNull()?.let { y ->
-                            year = y
-                            val newDate = Calendar.getInstance().apply {
-                                set(year, month, day)
-                            }
-                            onDateChange(newDate)
-                        }
-                    },
-                    modifier = Modifier.width(80.dp)
-                )
-            }
-            Column {
-                Text("月", fontSize = 12.sp)
-                OutlinedTextField(
-                    value = (month + 1).toString(),
-                    onValueChange = { 
-                        it.toIntOrNull()?.let { m ->
-                            if (m in 1..12) {
-                                month = m - 1
-                                val newDate = Calendar.getInstance().apply {
-                                    set(year, month, day)
-                                }
-                                onDateChange(newDate)
-                            }
-                        }
-                    },
-                    modifier = Modifier.width(80.dp)
-                )
-            }
-            Column {
-                Text("日", fontSize = 12.sp)
-                OutlinedTextField(
-                    value = day.toString(),
-                    onValueChange = { 
-                        it.toIntOrNull()?.let { d ->
-                            if (d in 1..31) {
-                                day = d
-                                val newDate = Calendar.getInstance().apply {
-                                    set(year, month, day)
-                                }
-                                onDateChange(newDate)
-                            }
-                        }
-                    },
-                    modifier = Modifier.width(80.dp)
-                )
-            }
-        }
-    }
 }
 
 data class DayInfo(
